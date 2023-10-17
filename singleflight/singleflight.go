@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// 避免缓存穿透
+
 // Package singleflight provides a duplicate function call suppression
 // mechanism.
 package singleflight

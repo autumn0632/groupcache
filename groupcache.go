@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// package包的主要结构， 通过Group结构体提供并发安全的访问
+
 // Package groupcache provides a data loading mechanism with caching
 // and de-duplication that works across a set of peer processes.
 //
@@ -37,6 +39,8 @@ import (
 	"github.com/golang/groupcache/singleflight"
 )
 
+// 提供Getter接口，自定义读取缓存到目标结构体
+
 // A Getter loads data for a key.
 type Getter interface {
 	// Get returns the value identified by key, populating dest.
@@ -48,6 +52,8 @@ type Getter interface {
 	Get(ctx context.Context, key string, dest Sink) error
 }
 
+// 函数类型实现接口类型
+
 // A GetterFunc implements Getter with a function.
 type GetterFunc func(ctx context.Context, key string, dest Sink) error
 
@@ -57,7 +63,7 @@ func (f GetterFunc) Get(ctx context.Context, key string, dest Sink) error {
 
 var (
 	mu     sync.RWMutex
-	groups = make(map[string]*Group)
+	groups = make(map[string]*Group) // 缓存分组
 
 	initPeerServerOnce sync.Once
 	initPeerServer     func()
@@ -206,11 +212,12 @@ func (g *Group) initPeers() {
 }
 
 func (g *Group) Get(ctx context.Context, key string, dest Sink) error {
-	g.peersOnce.Do(g.initPeers)
+	g.peersOnce.Do(g.initPeers) // 延迟加载处理
 	g.Stats.Gets.Add(1)
 	if dest == nil {
 		return errors.New("groupcache: nil dest Sink")
 	}
+	// 从本地缓存直接查找
 	value, cacheHit := g.lookupCache(key)
 
 	if cacheHit {
@@ -265,6 +272,8 @@ func (g *Group) load(ctx context.Context, key string, dest Sink) (value ByteView
 		g.Stats.LoadsDeduped.Add(1)
 		var value ByteView
 		var err error
+
+		// 本地缓存获取不到，去peer节点请求
 		if peer, ok := g.peers.PickPeer(key); ok {
 			value, err = g.getFromPeer(ctx, peer, key)
 			if err == nil {
@@ -277,6 +286,8 @@ func (g *Group) load(ctx context.Context, key string, dest Sink) (value ByteView
 			// probably boring (normal task movement), so not
 			// worth logging I imagine.
 		}
+
+		// peer节点也获取不到，通过Getter接口，查找数据，并装入mainCache缓存
 		value, err = g.getLocally(ctx, key, dest)
 		if err != nil {
 			g.Stats.LocalLoadErrs.Add(1)

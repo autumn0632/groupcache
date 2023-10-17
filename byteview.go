@@ -23,6 +23,8 @@ import (
 	"strings"
 )
 
+// ByteView 确保数据不可修改
+
 // A ByteView holds an immutable view of bytes.
 // Internally it wraps either a []byte or a string,
 // but that detail is invisible to callers.
@@ -43,6 +45,7 @@ func (v ByteView) Len() int {
 	return len(v.s)
 }
 
+// 返回深copy，防止被修改
 // ByteSlice returns a copy of the data as a byte slice.
 func (v ByteView) ByteSlice() []byte {
 	if v.b != nil {

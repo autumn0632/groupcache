@@ -19,6 +19,8 @@ package lru
 
 import "container/list"
 
+// 最底层结构，通过Cache结构体，提供最基本的，实现LRU策略的缓存功能。（非并发安全）
+
 // Cache is an LRU cache. It is not safe for concurrent access.
 type Cache struct {
 	// MaxEntries is the maximum number of cache entries before
@@ -29,13 +31,14 @@ type Cache struct {
 	// executed when an entry is purged from the cache.
 	OnEvicted func(key Key, value interface{})
 
-	ll    *list.List
-	cache map[interface{}]*list.Element
+	ll    *list.List                    // 使用双向链表实现lru功能：删除最近最少使用的数据
+	cache map[interface{}]*list.Element // 缓存结构，时间复杂度o(1)
 }
 
 // A Key may be any value that is comparable. See http://golang.org/ref/spec#Comparison_operators
 type Key interface{}
 
+// 缓存的数据类型
 type entry struct {
 	key   Key
 	value interface{}
@@ -58,6 +61,7 @@ func (c *Cache) Add(key Key, value interface{}) {
 		c.cache = make(map[interface{}]*list.Element)
 		c.ll = list.New()
 	}
+	// 如果key存在，将key移到队尾（相对的），并更新链表值
 	if ee, ok := c.cache[key]; ok {
 		c.ll.MoveToFront(ee)
 		ee.Value.(*entry).value = value
@@ -65,6 +69,7 @@ func (c *Cache) Add(key Key, value interface{}) {
 	}
 	ele := c.ll.PushFront(&entry{key, value})
 	c.cache[key] = ele
+	// 检查容量，执行LRU
 	if c.MaxEntries != 0 && c.ll.Len() > c.MaxEntries {
 		c.RemoveOldest()
 	}
@@ -97,6 +102,7 @@ func (c *Cache) RemoveOldest() {
 	if c.cache == nil {
 		return
 	}
+	// 在Back端（队首）元素执行删除
 	ele := c.ll.Back()
 	if ele != nil {
 		c.removeElement(ele)

@@ -14,6 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
+// 工具包，通过MAP结构体，为分布式节点提供一致性hash功能。具备容错、扩缩容功能。
+
 // Package consistenthash provides an implementation of a ring hash.
 package consistenthash
 
@@ -27,11 +29,12 @@ type Hash func(data []byte) uint32
 
 type Map struct {
 	hash     Hash
-	replicas int
-	keys     []int // Sorted
-	hashMap  map[int]string
+	replicas int            // 虚拟节点数，解决数据倾斜问题
+	keys     []int          // Sorted
+	hashMap  map[int]string // 虚拟节点到实际服务器的映射
 }
 
+// fn Hash - 依赖注入方式，将hash方法从外部传入
 func New(replicas int, fn Hash) *Map {
 	m := &Map{
 		replicas: replicas,
@@ -70,6 +73,7 @@ func (m *Map) Get(key string) string {
 	hash := int(m.hash([]byte(key)))
 
 	// Binary search for appropriate replica.
+	// 使用二分法查找，返回[0,n)中index值。这个值为[0,n)中最小的使函数为true的值
 	idx := sort.Search(len(m.keys), func(i int) bool { return m.keys[i] >= hash })
 
 	// Means we have cycled back to the first replica.
@@ -77,5 +81,5 @@ func (m *Map) Get(key string) string {
 		idx = 0
 	}
 
-	return m.hashMap[m.keys[idx]]
+	return m.hashMap[m.keys[idx]] //返回真正的服务器节点
 }

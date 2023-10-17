@@ -40,7 +40,7 @@ var (
 
 func TestHTTPPool(t *testing.T) {
 	if *peerChild {
-		beChildForTestHTTPPool()
+		beChildForTestHTTPPool(t)
 		os.Exit(0)
 	}
 
@@ -54,6 +54,7 @@ func TestHTTPPool(t *testing.T) {
 		childAddr = append(childAddr, pickFreeAddr(t))
 	}
 
+	// peer启动操作
 	var cmds []*exec.Cmd
 	var wg sync.WaitGroup
 	for i := 0; i < nChild; i++ {
@@ -65,6 +66,7 @@ func TestHTTPPool(t *testing.T) {
 		)
 		cmds = append(cmds, cmd)
 		wg.Add(1)
+		t.Logf("cmd: %s", cmd.String())
 		if err := cmd.Start(); err != nil {
 			t.Fatal("failed to start child process: ", err)
 		}
@@ -111,7 +113,7 @@ func testKeys(n int) (keys []string) {
 	return
 }
 
-func beChildForTestHTTPPool() {
+func beChildForTestHTTPPool(t *testing.T) {
 	addrs := strings.Split(*peerAddrs, ",")
 
 	p := NewHTTPPool("http://" + addrs[*peerIndex])
@@ -122,7 +124,7 @@ func beChildForTestHTTPPool() {
 		return nil
 	})
 	NewGroup("httpPoolTest", 1<<20, getter)
-
+	t.Logf("start http listen: %v", addrs)
 	log.Fatal(http.ListenAndServe(addrs[*peerIndex], p))
 }
 
